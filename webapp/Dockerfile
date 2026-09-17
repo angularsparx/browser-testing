@@ -2,10 +2,10 @@ FROM mcr.microsoft.com/playwright:v1.48.0-jammy
 
 WORKDIR /app
 
-COPY package.json ./
+COPY webapp/package.json ./
 RUN npm install --omit=dev
 
-COPY . .
+COPY webapp/ .
 
 ENV PORT=8080
 EXPOSE 8080
