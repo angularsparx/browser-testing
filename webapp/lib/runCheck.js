@@ -11,7 +11,8 @@ const ENGINES = [
   { name: 'webkit', launcher: webkit },
 ];
 
-const PER_PAGE_TIMEOUT_MS = 15000;
+const GOTO_TIMEOUT_MS = 25000;
+const SCREENSHOT_TIMEOUT_MS = 25000;
 
 async function checkOneEngineViewport(launcher, url, viewport) {
   const browser = await launcher.launch();
@@ -22,13 +23,23 @@ async function checkOneEngineViewport(launcher, url, viewport) {
       if (msg.type() === 'error') consoleErrors.push(msg.text().slice(0, 200));
     });
 
-    await page.goto(url, { waitUntil: 'load', timeout: PER_PAGE_TIMEOUT_MS });
+    // domcontentloaded instead of load: real-world pages with slow third-party
+    // scripts/images/analytics can take much longer to fire 'load', especially
+    // under a constrained free-tier CPU. A brief settle time covers most
+    // above-the-fold rendering without being at the mercy of every asset.
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: GOTO_TIMEOUT_MS });
+    await page.waitForTimeout(1000);
 
     const hasHorizontalScroll = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth
     );
 
-    const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 60, timeout: PER_PAGE_TIMEOUT_MS });
+    const screenshotBuffer = await page.screenshot({
+      type: 'jpeg',
+      quality: 60,
+      timeout: SCREENSHOT_TIMEOUT_MS,
+      animations: 'disabled',
+    });
 
     return {
       ok: true,
