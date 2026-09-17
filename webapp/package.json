@@ -1,0 +1,15 @@
+{
+  "name": "browser-testing-webapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web frontend for running quick cross-browser/responsive checks against a public URL.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "playwright": "^1.48.0"
+  }
+}

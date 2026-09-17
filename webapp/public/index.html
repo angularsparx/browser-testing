@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Testing Tool</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.5rem; }
+  .sub { color: #666; margin-top: -8px; }
+  form { display: flex; gap: 8px; margin: 24px 0; }
+  input[type=url] { flex: 1; padding: 10px 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 6px; }
+  button { padding: 10px 18px; font-size: 1rem; border: none; border-radius: 6px; background: #2563eb; color: white; cursor: pointer; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  #status { min-height: 1.5em; margin-bottom: 12px; }
+  .error { color: #c0392b; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+  .card img { width: 100%; display: block; border-bottom: 1px solid #ddd; }
+  .card .meta { padding: 8px 10px; font-size: 0.85rem; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .pass { background: #d1fae5; color: #065f46; }
+  .fail { background: #fee2e2; color: #991b1b; }
+  footer { margin-top: 40px; font-size: 0.8rem; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Browser Testing Tool</h1>
+  <p class="sub">Runs a quick cross-browser + responsive check (Chromium &amp; WebKit, at mobile/tablet/desktop widths) against a public URL.</p>
+
+  <form id="testForm">
+    <input type="url" id="urlInput" placeholder="https://example.com" required>
+    <button type="submit" id="submitBtn">Run Test</button>
+  </form>
+
+  <div id="status"></div>
+  <div class="grid" id="results"></div>
+
+  <footer>Only public http/https URLs are allowed. One test runs at a time.</footer>
+
+<script>
+const form = document.getElementById('testForm');
+const status = document.getElementById('status');
+const results = document.getElementById('results');
+const submitBtn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = document.getElementById('urlInput').value.trim();
+  results.innerHTML = '';
+  status.textContent = 'Running tests… this can take up to a minute.';
+  status.className = '';
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Something went wrong.';
+      status.className = 'error';
+      return;
+    }
+    status.textContent = `Results for ${data.url}`;
+    for (const r of data.results) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      if (r.ok) {
+        const badgeClass = r.hasHorizontalScroll ? 'fail' : 'pass';
+        const badgeText = r.hasHorizontalScroll ? 'Overflow' : 'OK';
+        card.innerHTML = `
+          <img src="data:image/jpeg;base64,${r.screenshotBase64}" alt="${r.engine} ${r.viewport}">
+          <div class="meta">
+            <strong>${r.engine} / ${r.viewport}</strong><br>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+            ${r.consoleErrorCount ? ` <span class="badge fail">${r.consoleErrorCount} console errors</span>` : ''}
+          </div>`;
+      } else {
+        card.innerHTML = `
+          <div class="meta">
+            <strong>${r.engine} / ${r.viewport}</strong><br>
+            <span class="badge fail">Failed: ${r.error}</span>
+          </div>`;
+      }
+      results.appendChild(card);
+    }
+  } catch (err) {
+    status.textContent = 'Network error: ' + err.message;
+    status.className = 'error';
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
