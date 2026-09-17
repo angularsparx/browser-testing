@@ -39,6 +39,7 @@ async function checkOneEngineViewport(launcher, url, viewport) {
       quality: 60,
       timeout: SCREENSHOT_TIMEOUT_MS,
       animations: 'disabled',
+      fullPage: true,
     });
 
     return {
