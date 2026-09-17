@@ -56,12 +56,14 @@ async function checkOneEngineViewport(launcher, url, viewport) {
   }
 }
 
-async function runCheck(url) {
+async function runCheck(url, onResult) {
   const results = [];
   for (const engine of ENGINES) {
     for (const viewport of VIEWPORTS) {
       const result = await checkOneEngineViewport(engine.launcher, url, viewport);
-      results.push({ engine: engine.name, viewport: viewport.name, ...result });
+      const entry = { engine: engine.name, viewport: viewport.name, ...result };
+      results.push(entry);
+      if (onResult) onResult(entry);
     }
   }
   return results;

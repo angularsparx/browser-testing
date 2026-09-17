@@ -45,11 +45,64 @@ const status = document.getElementById('status');
 const results = document.getElementById('results');
 const submitBtn = document.getElementById('submitBtn');
 
+function renderResult(r) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  if (r.ok) {
+    const badgeClass = r.hasHorizontalScroll ? 'fail' : 'pass';
+    const badgeText = r.hasHorizontalScroll ? 'Overflow' : 'OK';
+    card.innerHTML = `
+      <img src="data:image/jpeg;base64,${r.screenshotBase64}" alt="${r.engine} ${r.viewport}">
+      <div class="meta">
+        <strong>${r.engine} / ${r.viewport}</strong><br>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+        ${r.consoleErrorCount ? ` <span class="badge fail">${r.consoleErrorCount} console errors</span>` : ''}
+      </div>`;
+  } else {
+    card.innerHTML = `
+      <div class="meta">
+        <strong>${r.engine} / ${r.viewport}</strong><br>
+        <span class="badge fail">Failed: ${r.error}</span>
+      </div>`;
+  }
+  return card;
+}
+
+async function pollJob(jobId, url) {
+  const seen = new Set();
+  while (true) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = await fetch(`/api/test/${jobId}`);
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.error || 'Something went wrong.';
+      status.className = 'error';
+      return;
+    }
+    for (const r of data.results) {
+      const key = r.engine + '/' + r.viewport;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.appendChild(renderResult(r));
+    }
+    status.textContent = `Results for ${url} — ${data.results.length}/6 checks complete`;
+    if (data.error) {
+      status.textContent = data.error;
+      status.className = 'error';
+      return;
+    }
+    if (data.done) {
+      status.textContent = `Done — results for ${url}`;
+      return;
+    }
+  }
+}
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const url = document.getElementById('urlInput').value.trim();
   results.innerHTML = '';
-  status.textContent = 'Running tests… this can take up to a minute.';
+  status.textContent = 'Starting test…';
   status.className = '';
   submitBtn.disabled = true;
 
@@ -65,29 +118,8 @@ form.addEventListener('submit', async (e) => {
       status.className = 'error';
       return;
     }
-    status.textContent = `Results for ${data.url}`;
-    for (const r of data.results) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      if (r.ok) {
-        const badgeClass = r.hasHorizontalScroll ? 'fail' : 'pass';
-        const badgeText = r.hasHorizontalScroll ? 'Overflow' : 'OK';
-        card.innerHTML = `
-          <img src="data:image/jpeg;base64,${r.screenshotBase64}" alt="${r.engine} ${r.viewport}">
-          <div class="meta">
-            <strong>${r.engine} / ${r.viewport}</strong><br>
-            <span class="badge ${badgeClass}">${badgeText}</span>
-            ${r.consoleErrorCount ? ` <span class="badge fail">${r.consoleErrorCount} console errors</span>` : ''}
-          </div>`;
-      } else {
-        card.innerHTML = `
-          <div class="meta">
-            <strong>${r.engine} / ${r.viewport}</strong><br>
-            <span class="badge fail">Failed: ${r.error}</span>
-          </div>`;
-      }
-      results.appendChild(card);
-    }
+    status.textContent = 'Running tests… results will appear as each one finishes.';
+    await pollJob(data.jobId, data.url);
   } catch (err) {
     status.textContent = 'Network error: ' + err.message;
     status.className = 'error';
